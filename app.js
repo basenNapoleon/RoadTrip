@@ -24,6 +24,7 @@ const emptyTrip = () => ({
   polls: [],
   activities: [],
   packing: [],
+  personalPacking: {},
   expenses: []
 });
 
@@ -111,13 +112,30 @@ function renderAll() {
   renderPolls();
   renderActivities();
   renderPacking();
+  renderPersonalPacking();
   renderExpenses();
 }
 
 function renderMembers() {
   const el = document.getElementById("members-list");
-  el.innerHTML = (tripData.members || []).map((m) => `<span>${escapeHtml(m)}</span>`).join("");
+  el.innerHTML = (tripData.members || []).map((m) => `
+    <span class="member-pill">${escapeHtml(m)}<button class="member-remove" data-name="${escapeHtml(m)}" data-action="remove-member" title="Ta bort ${escapeHtml(m)}">✕</button></span>
+  `).join("");
 }
+
+document.getElementById("members-list").addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-action='remove-member']");
+  if (!btn) return;
+  const name = btn.dataset.name;
+  if (!confirm(`Ta bort "${name}" från medlemslistan? (Saker de redan lagt till, t.ex. utlägg eller röster, påverkas inte.)`)) return;
+  const updated = (tripData.members || []).filter((m) => m !== name);
+  await saveField("members", updated);
+  // if you removed yourself, forget local join info so you get the join screen again
+  if (name === myName) {
+    localStorage.removeItem("lofoten_tripcode");
+    localStorage.removeItem("lofoten_name");
+  }
+});
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({
@@ -153,10 +171,10 @@ function renderStops() {
 
   const list = document.getElementById("stop-list");
   list.innerHTML = (tripData.stops || []).map((s) => `
-    <li class="item-card">
+    <li class="list-row">
       <div class="item-row">
         <div>
-          <div class="item-card-title">📍 ${escapeHtml(s.name)}</div>
+          <div class="item-card-title">${escapeHtml(s.name)}</div>
           ${s.note ? `<div class="item-card-note">${escapeHtml(s.note)}</div>` : ""}
         </div>
         <button class="delete-btn" data-id="${s.id}" data-action="del-stop">✕</button>
@@ -211,11 +229,11 @@ function renderStays() {
   const list = document.getElementById("stay-list");
   const sorted = [...(tripData.stays || [])].sort((a, b) => a.date.localeCompare(b.date));
   list.innerHTML = sorted.map((s) => `
-    <li class="item-card">
+    <li class="list-row">
       <div class="item-row">
         <div>
           <div class="item-card-meta">${formatDate(s.date)}</div>
-          <div class="item-card-title">🏕️ ${escapeHtml(s.place)}</div>
+          <div class="item-card-title">${escapeHtml(s.place)}</div>
           ${s.note ? `<div class="item-card-note">${escapeHtml(s.note)}</div>` : ""}
         </div>
         <button class="delete-btn" data-id="${s.id}" data-action="del-stay">✕</button>
@@ -266,9 +284,9 @@ function renderPolls() {
         </div>`;
     }).join("");
     return `
-      <li class="item-card">
+      <li class="list-row">
         <div class="item-row">
-          <div class="item-card-title">🗳️ ${escapeHtml(p.question)}</div>
+          <div class="item-card-title">${escapeHtml(p.question)}</div>
           <button class="delete-btn" data-id="${p.id}" data-action="del-poll">✕</button>
         </div>
         ${optionsHtml}
@@ -321,17 +339,18 @@ function renderActivities() {
   list.innerHTML = (tripData.activities || []).map((a) => {
     const liked = (a.likes || []).includes(myName);
     return `
-      <li class="item-card">
+      <li class="list-row">
         <div class="item-row">
           <div>
-            <div class="item-card-title">🥾 ${escapeHtml(a.name)}</div>
+            <div class="item-card-title">${escapeHtml(a.name)}</div>
             <div class="item-card-meta">${escapeHtml(a.difficulty || "")} ${a.duration ? "· " + escapeHtml(a.duration) : ""}</div>
             ${a.note ? `<div class="item-card-note">${escapeHtml(a.note)}</div>` : ""}
           </div>
           <button class="delete-btn" data-id="${a.id}" data-action="del-activity">✕</button>
         </div>
         <button class="like-btn ${liked ? "liked" : ""}" data-id="${a.id}" data-action="like-activity">
-          👍 ${(a.likes || []).length}
+          <svg class="like-icon" viewBox="0 0 24 24" fill="${liked ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7.5-4.6-9.6-9.4C1.2 7.7 3 4.8 6.1 4.5c1.9-.2 3.6.8 5.9 3 2.3-2.2 4-3.2 5.9-3 3.1.3 4.9 3.2 3.7 6.1C19.5 15.4 12 20 12 20z"/></svg>
+          ${(a.likes || []).length}
         </button>
       </li>`;
   }).join("") || `<p class="hint">Inga förslag än.</p>`;
@@ -368,15 +387,16 @@ document.getElementById("activity-list").addEventListener("click", async (e) => 
   }
 });
 
-// ---------- PACKING ----------
+// ---------- PACKING: SHARED ----------
 function renderPacking() {
   const list = document.getElementById("packing-list");
   list.innerHTML = (tripData.packing || []).map((p) => `
-    <li class="item-card">
+    <li class="list-row">
       <div class="item-row">
         <label class="checkbox-row">
           <input type="checkbox" ${p.checked ? "checked" : ""} data-id="${p.id}" data-action="toggle-packing">
           <span class="${p.checked ? "checked-text" : ""}">${escapeHtml(p.text)}</span>
+          ${p.assignee ? `<span class="item-card-meta">· ${escapeHtml(p.assignee)}</span>` : ""}
         </label>
         <button class="delete-btn" data-id="${p.id}" data-action="del-packing">✕</button>
       </div>
@@ -387,8 +407,9 @@ function renderPacking() {
 document.getElementById("packing-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const text = document.getElementById("packing-item").value.trim();
+  const assignee = document.getElementById("packing-assignee").value.trim();
   if (!text) return;
-  const updated = [...(tripData.packing || []), { id: uid(), text, checked: false }];
+  const updated = [...(tripData.packing || []), { id: uid(), text, checked: false, assignee }];
   await saveField("packing", updated);
   e.target.reset();
 });
@@ -407,15 +428,102 @@ document.getElementById("packing-list").addEventListener("change", async (e) => 
   await saveField("packing", updated);
 });
 
+// ---------- PACKING: PERSONAL (per member, editable only by owner) ----------
+let personalPackingViewer = null;
+
+function renderPersonalPacking() {
+  const select = document.getElementById("personal-packing-select");
+  const members = (tripData.members && tripData.members.length) ? tripData.members : [myName];
+
+  const prevValue = personalPackingViewer && members.includes(personalPackingViewer) ? personalPackingViewer : myName;
+  select.innerHTML = members.map((m) => `<option value="${escapeHtml(m)}">${escapeHtml(m)}${m === myName ? " (du)" : ""}</option>`).join("");
+  select.value = prevValue;
+  personalPackingViewer = select.value;
+
+  const isMine = personalPackingViewer === myName;
+  const personal = (tripData.personalPacking && tripData.personalPacking[personalPackingViewer]) || [];
+
+  const listEl = document.getElementById("personal-packing-list");
+  listEl.innerHTML = personal.map((p) => `
+    <li class="list-row">
+      <div class="item-row">
+        <label class="checkbox-row">
+          <input type="checkbox" ${p.checked ? "checked" : ""} ${isMine ? "" : "disabled"} data-id="${p.id}" data-action="toggle-personal-packing">
+          <span class="${p.checked ? "checked-text" : ""}">${escapeHtml(p.text)}</span>
+        </label>
+        ${isMine ? `<button class="delete-btn" data-id="${p.id}" data-action="del-personal-packing">✕</button>` : ""}
+      </div>
+    </li>
+  `).join("") || `<p class="hint">${isMine ? "Din personliga packlista är tom." : escapeHtml(personalPackingViewer) + " har inte lagt till något än."}</p>`;
+
+  document.getElementById("personal-packing-form").classList.toggle("hidden", !isMine);
+  document.getElementById("personal-packing-readonly-hint").classList.toggle("hidden", isMine);
+}
+
+document.getElementById("personal-packing-select").addEventListener("change", (e) => {
+  personalPackingViewer = e.target.value;
+  renderPersonalPacking();
+});
+
+document.getElementById("personal-packing-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const text = document.getElementById("personal-packing-item").value.trim();
+  if (!text) return;
+  const current = (tripData.personalPacking && tripData.personalPacking[myName]) || [];
+  const updated = [...current, { id: uid(), text, checked: false }];
+  await updateDoc(tripRef(), { [`personalPacking.${myName}`]: updated });
+  e.target.reset();
+});
+
+document.getElementById("personal-packing-list").addEventListener("click", async (e) => {
+  if (personalPackingViewer !== myName) return;
+  const delBtn = e.target.closest("[data-action='del-personal-packing']");
+  if (!delBtn) return;
+  const current = (tripData.personalPacking && tripData.personalPacking[myName]) || [];
+  const updated = current.filter((p) => p.id !== delBtn.dataset.id);
+  await updateDoc(tripRef(), { [`personalPacking.${myName}`]: updated });
+});
+document.getElementById("personal-packing-list").addEventListener("change", async (e) => {
+  if (personalPackingViewer !== myName) return;
+  const cb = e.target.closest("[data-action='toggle-personal-packing']");
+  if (!cb) return;
+  const current = (tripData.personalPacking && tripData.personalPacking[myName]) || [];
+  const updated = current.map((p) => p.id === cb.dataset.id ? { ...p, checked: cb.checked } : p);
+  await updateDoc(tripRef(), { [`personalPacking.${myName}`]: updated });
+});
+
+// ---------- PACKING: subtab switching ----------
+document.querySelectorAll("#tab-packing .subtab-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#tab-packing .subtab-btn").forEach((b) => b.classList.remove("active"));
+    document.querySelectorAll("#tab-packing .subtab-panel").forEach((p) => p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.subtab).classList.add("active");
+  });
+});
+
 // ---------- EXPENSES ----------
+function renderExpensePayerOptions() {
+  const select = document.getElementById("expense-payer");
+  const members = tripData.members || [];
+  const prevValue = select.value;
+  select.innerHTML = members.map((m) => `<option value="${escapeHtml(m)}">${escapeHtml(m)}${m === myName ? " (du)" : ""}</option>`).join("");
+  if (members.includes(prevValue)) {
+    select.value = prevValue;
+  } else if (members.includes(myName)) {
+    select.value = myName;
+  }
+}
+
 function renderExpenses() {
+  renderExpensePayerOptions();
   const list = document.getElementById("expense-list");
   const expenses = tripData.expenses || [];
   list.innerHTML = expenses.map((ex) => `
-    <li class="item-card">
+    <li class="list-row">
       <div class="item-row">
         <div>
-          <div class="item-card-title">💸 ${escapeHtml(ex.desc)} — ${ex.amount.toFixed(2)} kr</div>
+          <div class="item-card-title">${escapeHtml(ex.desc)} — ${ex.amount.toFixed(2)} kr</div>
           <div class="item-card-meta">Betalat av ${escapeHtml(ex.payer)}</div>
         </div>
         <button class="delete-btn" data-id="${ex.id}" data-action="del-expense">✕</button>
@@ -457,16 +565,16 @@ document.getElementById("expense-form").addEventListener("submit", async (e) => 
   e.preventDefault();
   const desc = document.getElementById("expense-desc").value.trim();
   const amount = parseFloat(document.getElementById("expense-amount").value);
-  const payer = document.getElementById("expense-payer").value.trim();
+  const payer = document.getElementById("expense-payer").value;
   if (!desc || !payer || isNaN(amount)) return;
+  if (!(tripData.members || []).includes(payer)) {
+    alert("Den valda personen är inte längre med i resan. Välj en av deltagarna i listan.");
+    return;
+  }
   const updated = [...(tripData.expenses || []), { id: uid(), desc, amount, payer }];
   await saveField("expenses", updated);
-
-  // make sure payer is registered as a member so balances include them
-  if (!tripData.members.includes(payer)) {
-    await saveField("members", [...tripData.members, payer]);
-  }
-  e.target.reset();
+  document.getElementById("expense-desc").value = "";
+  document.getElementById("expense-amount").value = "";
 });
 
 document.getElementById("expense-list").addEventListener("click", async (e) => {
