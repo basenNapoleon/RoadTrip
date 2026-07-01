@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Lofoten Roadtrip</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- JOIN SCREEN -->
+<div id="join-screen" class="screen">
+  <div class="join-card">
+    <h1>🏔️ Lofoten Roadtrip</h1>
+    <p class="subtitle">Skriv in samma resekod som dina vänner för att se och redigera samma resa live.</p>
+    <label>Resekod</label>
+    <input id="join-tripcode" type="text" placeholder="t.ex. lofoten-gang-2026" autocomplete="off">
+    <label>Ditt namn</label>
+    <input id="join-name" type="text" placeholder="t.ex. Oskar" autocomplete="off">
+    <button id="join-btn" class="primary-btn">Gå med i resan</button>
+    <p class="hint">Första gången? Hitta bara på en resekod ingen annan använder – de andra tre skriver in samma kod så hamnar ni i samma resa.</p>
+  </div>
+</div>
+
+<!-- APP SHELL -->
+<div id="app-shell" class="screen hidden">
+
+  <header class="topbar">
+    <div class="topbar-title">
+      <span id="trip-code-label"></span>
+    </div>
+    <div class="topbar-members" id="members-list"></div>
+  </header>
+
+  <main id="main-content">
+
+    <!-- RUTT & KARTA -->
+    <section id="tab-route" class="tab-panel active">
+      <h2>Rutt & stopp</h2>
+      <div id="map"></div>
+      <form id="stop-form" class="inline-form">
+        <input id="stop-name" type="text" placeholder="Namn på stopp (t.ex. Trollstigen)" required>
+        <input id="stop-note" type="text" placeholder="Anteckning (valfritt)">
+        <button type="submit" class="primary-btn small">Sök & lägg till stopp</button>
+      </form>
+      <p class="hint">Sök på en plats ovan, eller klicka direkt på kartan för att släppa en pin.</p>
+      <ul id="stop-list" class="item-list"></ul>
+    </section>
+
+    <!-- BOENDE & SCHEMA -->
+    <section id="tab-stay" class="tab-panel">
+      <h2>Boende & dag-för-dag</h2>
+      <form id="stay-form" class="inline-form">
+        <input id="stay-date" type="date" required>
+        <input id="stay-place" type="text" placeholder="Var sover ni? (t.ex. Tälta vid Kvalvika)" required>
+        <input id="stay-note" type="text" placeholder="Anteckning / länk (valfritt)">
+        <button type="submit" class="primary-btn small">Lägg till natt</button>
+      </form>
+      <ul id="stay-list" class="item-list"></ul>
+    </section>
+
+    <!-- RÖSTNING -->
+    <section id="tab-vote" class="tab-panel">
+      <h2>Röstning & beslut</h2>
+      <form id="poll-form" class="inline-form">
+        <input id="poll-question" type="text" placeholder="Fråga (t.ex. Vilken led på fredag?)" required>
+        <input id="poll-options" type="text" placeholder="Alternativ, separerade med komma" required>
+        <button type="submit" class="primary-btn small">Skapa omröstning</button>
+      </form>
+      <ul id="poll-list" class="item-list"></ul>
+    </section>
+
+    <!-- AKTIVITETER -->
+    <section id="tab-activities" class="tab-panel">
+      <h2>Vandringar & aktiviteter</h2>
+      <form id="activity-form" class="inline-form">
+        <input id="activity-name" type="text" placeholder="Namn (t.ex. Reinebringen)" required>
+        <input id="activity-difficulty" type="text" placeholder="Svårighetsgrad (t.ex. Medel)">
+        <input id="activity-duration" type="text" placeholder="Tidsåtgång (t.ex. 3-4h)">
+        <input id="activity-note" type="text" placeholder="Anteckning (valfritt)">
+        <button type="submit" class="primary-btn small">Lägg till förslag</button>
+      </form>
+      <ul id="activity-list" class="item-list"></ul>
+    </section>
+
+    <!-- PACKLISTA -->
+    <section id="tab-packing" class="tab-panel">
+      <h2>Packlista</h2>
+      <form id="packing-form" class="inline-form">
+        <input id="packing-item" type="text" placeholder="Sak att packa" required>
+        <button type="submit" class="primary-btn small">Lägg till</button>
+      </form>
+      <ul id="packing-list" class="item-list"></ul>
+    </section>
+
+    <!-- UTGIFTER -->
+    <section id="tab-expenses" class="tab-panel">
+      <h2>Utgifter</h2>
+      <form id="expense-form" class="inline-form">
+        <input id="expense-desc" type="text" placeholder="Vad? (t.ex. Bensin)" required>
+        <input id="expense-amount" type="number" step="0.01" placeholder="Belopp (kr)" required>
+        <input id="expense-payer" type="text" placeholder="Vem betalade?" required>
+        <button type="submit" class="primary-btn small">Lägg till utlägg</button>
+      </form>
+      <div id="expense-summary" class="summary-box"></div>
+      <ul id="expense-list" class="item-list"></ul>
+    </section>
+
+  </main>
+
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-tab="tab-route">🗺️<span>Rutt</span></button>
+    <button class="nav-btn" data-tab="tab-stay">🏕️<span>Boende</span></button>
+    <button class="nav-btn" data-tab="tab-vote">🗳️<span>Rösta</span></button>
+    <button class="nav-btn" data-tab="tab-activities">🥾<span>Vandring</span></button>
+    <button class="nav-btn" data-tab="tab-packing">🎒<span>Packa</span></button>
+    <button class="nav-btn" data-tab="tab-expenses">💰<span>Utgifter</span></button>
+  </nav>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
