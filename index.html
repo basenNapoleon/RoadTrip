@@ -39,6 +39,7 @@
     </div>
     <div class="topbar-members" id="members-list"></div>
   </header>
+  <div id="offline-banner" class="offline-banner hidden">Offline – visar senast sparade data, dina ändringar synkas när du är uppkopplad igen</div>
 
   <main id="main-content">
 
@@ -52,7 +53,20 @@
         <button type="submit" class="primary-btn small">Sök & lägg till stopp</button>
       </form>
       <p class="hint">Sök på en plats ovan, eller klicka direkt på kartan för att släppa en pin.</p>
+      <div id="route-summary" class="summary-box hidden"></div>
       <ul id="stop-list" class="list-card"></ul>
+
+      <h3 class="section-heading">Körschema</h3>
+      <form id="driving-form" class="inline-form">
+        <label class="field-label">Datum</label>
+        <input id="driving-date" type="date" required>
+        <select id="driving-driver" required>
+          <option value="">Vem kör?</option>
+        </select>
+        <input id="driving-note" type="text" placeholder="Etapp (t.ex. Oslo → Trondheim)">
+        <button type="submit" class="primary-btn small">Lägg till</button>
+      </form>
+      <ul id="driving-list" class="list-card"></ul>
     </section>
 
     <!-- BOENDE & SCHEMA -->
@@ -66,6 +80,15 @@
         <button type="submit" class="primary-btn small">Lägg till natt</button>
       </form>
       <ul id="stay-list" class="list-card"></ul>
+
+      <h3 class="section-heading">Delade bilder</h3>
+      <div class="inline-form">
+        <label class="field-label">Ladda upp bild</label>
+        <input id="photo-upload-input" type="file" accept="image/*">
+        <button id="photo-upload-btn" class="primary-btn small">Ladda upp</button>
+        <p id="photo-upload-status" class="hint hidden" style="margin:0;"></p>
+      </div>
+      <div id="photo-grid" class="photo-grid"></div>
     </section>
 
     <!-- RÖSTNING -->

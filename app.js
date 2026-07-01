@@ -1,12 +1,26 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getFirestore, doc, onSnapshot, setDoc, updateDoc, getDoc
+  getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+  doc, onSnapshot, setDoc, updateDoc, getDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
+import { cloudinaryConfig } from "./cloudinary-config.js";
 
 // ---------- Firebase setup ----------
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+
+// Offline cache: keeps the last-synced trip data available (and queues your edits)
+// even without signal, which matters a lot in parts of Lofoten. Falls back to a
+// plain online-only connection if the browser doesn't support it.
+let db;
+try {
+  db = initializeFirestore(app, {
+    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+  });
+} catch (err) {
+  console.warn("Offline-cache kunde inte aktiveras, kör online-only:", err);
+  db = getFirestore(app);
+}
 
 // ---------- Local state ----------
 let tripCode = localStorage.getItem("lofoten_tripcode") || "";
@@ -25,7 +39,10 @@ const emptyTrip = () => ({
   activities: [],
   packing: [],
   personalPacking: {},
-  expenses: []
+  expenses: [],
+  driving: [],
+  photoAlbumLink: "",
+  photos: []
 });
 
 const uid = () => Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
@@ -33,6 +50,14 @@ const uid = () => Date.now().toString(36) + "-" + Math.random().toString(36).sli
 // ---------- DOM refs ----------
 const joinScreen = document.getElementById("join-screen");
 const appShell = document.getElementById("app-shell");
+
+// ---------- Offline indicator ----------
+function updateOfflineBanner() {
+  document.getElementById("offline-banner").classList.toggle("hidden", navigator.onLine);
+}
+window.addEventListener("online", updateOfflineBanner);
+window.addEventListener("offline", updateOfflineBanner);
+updateOfflineBanner();
 
 // ---------- Join flow ----------
 document.getElementById("join-btn").addEventListener("click", async () => {
@@ -114,6 +139,9 @@ function renderAll() {
   renderPacking();
   renderPersonalPacking();
   renderExpenses();
+  renderDriving();
+  renderPhotoAlbum();
+  renderPhotos();
 }
 
 function renderMembers() {
@@ -181,6 +209,46 @@ function renderStops() {
       </div>
     </li>
   `).join("") || `<p class="hint">Inga stopp tillagda än.</p>`;
+
+  renderRouteSummary();
+}
+
+// ---------- ROUTE DISTANCE/TIME (order = the order stops appear in the list above) ----------
+let routeSummaryRequestId = 0;
+async function renderRouteSummary() {
+  const el = document.getElementById("route-summary");
+  const stops = tripData.stops || [];
+  if (stops.length < 2) {
+    el.classList.add("hidden");
+    return;
+  }
+  const myRequestId = ++routeSummaryRequestId;
+  el.classList.remove("hidden");
+  el.innerHTML = `<p class="hint" style="margin:0;">Räknar ut körsträcka…</p>`;
+
+  const coords = stops.map((s) => `${s.lng},${s.lat}`).join(";");
+  try {
+    const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=false`);
+    const data = await res.json();
+    if (myRequestId !== routeSummaryRequestId) return; // a newer request superseded this one
+    if (data.code !== "Ok" || !data.routes || !data.routes.length) {
+      el.innerHTML = `<p class="hint" style="margin:0;">Kunde inte räkna ut körsträckan just nu.</p>`;
+      return;
+    }
+    const meters = data.routes[0].distance;
+    const seconds = data.routes[0].duration;
+    const km = Math.round(meters / 1000);
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.round((seconds % 3600) / 60);
+    el.innerHTML = `
+      <div class="balance-row"><span>Total körsträcka</span><b>${km} km</b></div>
+      <div class="balance-row"><span>Ungefärlig körtid</span><b>${hours} tim ${minutes} min</b></div>
+      <p class="hint" style="margin:8px 0 0;">Baserat på ordningen stoppen listas i nedan, exklusive pauser.</p>
+    `;
+  } catch (err) {
+    if (myRequestId !== routeSummaryRequestId) return;
+    el.innerHTML = `<p class="hint" style="margin:0;">Kunde inte räkna ut körsträckan just nu (ingen kontakt med ruttjänsten).</p>`;
+  }
 }
 
 document.getElementById("stop-form").addEventListener("submit", async (e) => {
@@ -264,6 +332,153 @@ document.getElementById("stay-list").addEventListener("click", async (e) => {
   if (!btn) return;
   const updated = (tripData.stays || []).filter((s) => s.id !== btn.dataset.id);
   await saveField("stays", updated);
+});
+
+// ---------- DRIVING SCHEDULE (who drives which day/leg) ----------
+function renderDrivingDriverOptions() {
+  const select = document.getElementById("driving-driver");
+  const members = tripData.members || [];
+  const prevValue = select.value;
+  select.innerHTML = `<option value="">Vem kör?</option>` +
+    members.map((m) => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join("");
+  if (members.includes(prevValue)) select.value = prevValue;
+}
+
+function renderDriving() {
+  renderDrivingDriverOptions();
+  const list = document.getElementById("driving-list");
+  const sorted = [...(tripData.driving || [])].sort((a, b) => a.date.localeCompare(b.date));
+  list.innerHTML = sorted.map((d) => `
+    <li class="list-row">
+      <div class="item-row">
+        <div>
+          <div class="item-card-meta">${formatDate(d.date)}</div>
+          <div class="item-card-title">${escapeHtml(d.driver)}</div>
+          ${d.note ? `<div class="item-card-note">${escapeHtml(d.note)}</div>` : ""}
+        </div>
+        <button class="delete-btn" data-id="${d.id}" data-action="del-driving">✕</button>
+      </div>
+    </li>
+  `).join("") || `<p class="hint">Inget körschema inlagt än.</p>`;
+}
+
+document.getElementById("driving-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const date = document.getElementById("driving-date").value;
+  const driver = document.getElementById("driving-driver").value;
+  const note = document.getElementById("driving-note").value.trim();
+  if (!date || !driver) return;
+  if (!(tripData.members || []).includes(driver)) {
+    alert("Den valda personen är inte längre med i resan. Välj en av deltagarna i listan.");
+    return;
+  }
+  const updated = [...(tripData.driving || []), { id: uid(), date, driver, note }];
+  await saveField("driving", updated);
+  e.target.reset();
+});
+
+document.getElementById("driving-list").addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-action='del-driving']");
+  if (!btn) return;
+  const updated = (tripData.driving || []).filter((d) => d.id !== btn.dataset.id);
+  await saveField("driving", updated);
+});
+
+// ---------- PHOTO GALLERY (Cloudinary, free tier, unsigned client-side upload - no OAuth/login needed) ----------
+function cloudinaryThumb(url) {
+  return url.replace("/upload/", "/upload/c_fill,w_400,h_400,q_auto,f_auto/");
+}
+
+function renderPhotos() {
+  const grid = document.getElementById("photo-grid");
+  const photos = tripData.photos || [];
+  grid.innerHTML = photos.map((p) => `
+    <div class="photo-item">
+      <a href="${p.url}" target="_blank" rel="noopener">
+        <img src="${cloudinaryThumb(p.url)}" alt="" loading="lazy">
+      </a>
+      ${p.uploadedBy ? `<span class="photo-uploader-tag">${escapeHtml(p.uploadedBy)}</span>` : ""}
+      <button class="delete-btn" data-id="${p.id}" data-action="del-photo" title="Ta bort ur galleriet">✕</button>
+    </div>
+  `).join("");
+}
+
+document.getElementById("photo-grid").addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-action='del-photo']");
+  if (!btn) return;
+  const updated = (tripData.photos || []).filter((p) => p.id !== btn.dataset.id);
+  await saveField("photos", updated);
+});
+
+document.getElementById("photo-upload-btn").addEventListener("click", async () => {
+  const input = document.getElementById("photo-upload-input");
+  const status = document.getElementById("photo-upload-status");
+  const file = input.files[0];
+  if (!file) {
+    alert("Välj en bild först.");
+    return;
+  }
+  if (cloudinaryConfig.cloudName.startsWith("FYLL_I_") || cloudinaryConfig.uploadPreset.startsWith("FYLL_I_")) {
+    alert("Bilduppladdning är inte konfigurerad än - se README.md för hur du kopplar in ett gratis Cloudinary-konto.");
+    return;
+  }
+  if (file.size > 15 * 1024 * 1024) {
+    alert("Bilden är större än 15 MB - välj en mindre bild (t.ex. skärmdump av originalet) så räcker gratiskvoten längre.");
+    return;
+  }
+
+  status.textContent = "Laddar upp…";
+  status.classList.remove("hidden");
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", cloudinaryConfig.uploadPreset);
+
+  try {
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudinaryConfig.cloudName}/image/upload`, {
+      method: "POST",
+      body: formData
+    });
+    const data = await res.json();
+    if (!res.ok || !data.secure_url) {
+      throw new Error(data.error?.message || "Okänt fel");
+    }
+    const updated = [...(tripData.photos || []), { id: uid(), url: data.secure_url, publicId: data.public_id, uploadedBy: myName }];
+    await saveField("photos", updated);
+    input.value = "";
+    status.classList.add("hidden");
+  } catch (err) {
+    status.textContent = "Uppladdningen misslyckades: " + err.message;
+  }
+});
+
+// ---------- SHARED PHOTO ALBUM LINK ----------
+// Google shut down the Photos Library API's shared-album endpoints in March 2025, and the
+// replacement Picker API needs a per-person Google sign-in plus a manual picker each time, with
+// image URLs that expire after 60 minutes - not workable for a persistent embedded gallery.
+// So instead: whoever makes the actual shared album in the Google Photos app pastes the
+// invite link here once, and everyone gets a one-tap button straight into the real album.
+function renderPhotoAlbum() {
+  const input = document.getElementById("photo-album-link");
+  const openLink = document.getElementById("photo-album-open");
+  if (document.activeElement !== input) {
+    input.value = tripData.photoAlbumLink || "";
+  }
+  if (tripData.photoAlbumLink) {
+    openLink.href = tripData.photoAlbumLink;
+    openLink.classList.remove("hidden");
+  } else {
+    openLink.classList.add("hidden");
+  }
+}
+
+document.getElementById("photo-album-save").addEventListener("click", async () => {
+  const input = document.getElementById("photo-album-link");
+  const value = input.value.trim();
+  if (value && !/^https?:\/\//i.test(value)) {
+    alert("Länken ser inte helt rätt ut - den bör börja med https://");
+    return;
+  }
+  await saveField("photoAlbumLink", value);
 });
 
 // ---------- POLLS ----------

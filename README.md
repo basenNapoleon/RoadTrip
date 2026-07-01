@@ -23,7 +23,17 @@ Funkar på alla telefoner (iPhone och Android) direkt i webbläsaren – ingen i
    ```
 5. Öppna filen **`firebase-config.js`** i den här mappen och klistra in dina egna värden istället för `"FYLL_I_..."`.
 
-### 2. Aktivera databasen (Firestore)
+### 2. Aktivera bilduppladdning (Cloudinary, valfritt men rekommenderat)
+Behövs bara om ni vill kunna ladda upp bilder direkt i appen (annars funkar allt annat ändå).
+1. Gå till https://cloudinary.com och skapa ett gratis konto (mejl, Google eller GitHub räcker, inget kreditkort krävs).
+2. På Dashboard-sidan, kopiera ditt **"Cloud name"** högst upp.
+3. Gå till inställningar (kugghjulet uppe till höger) → **Upload** → **Upload presets** → **Add upload preset**.
+4. Sätt **Signing Mode** till **Unsigned**, spara, och kopiera namnet på presetet.
+5. Öppna **`cloudinary-config.js`** i den här mappen och klistra in `cloudName` och `uploadPreset`.
+
+Gratisnivån ger 25 krediter/månad (1 kredit ≈ 1 GB lagring eller bandbredd) – gott och väl för en resas bilder, och ni blir aldrig debiterade eftersom kontot inte har något kort kopplat.
+
+### 3. Aktivera databasen (Firestore)
 1. I Firebase-menyn till vänster: gå till **Build → Firestore Database**.
 2. Klicka **"Create database"**.
 3. Välj **"Start in test mode"** (räcker gott för en resa på några veckor).
@@ -41,14 +51,14 @@ Funkar på alla telefoner (iPhone och Android) direkt i webbläsaren – ingen i
    ```
    Detta gör att vem som helst med er hemliga resekod kan läsa/skriva – helt okej för en privat vänresa, men dela **inte** koden offentligt.
 
-### 3. Publicera appen så alla kan öppna den
+### 4. Publicera appen så alla kan öppna den
 Enklaste sättet – ingen installation krävs:
-1. Gå till https://app.netlify.com/drop
-2. Dra hela den här mappen (index.html, style.css, app.js, firebase-config.js) till sidan.
+1. Gå till https://app.netlify.com/drop (eller vercel.com/drop)
+2. Dra hela den här mappen till sidan.
 3. Du får en publik länk direkt, typ `https://random-namn-123.netlify.app`.
 4. Skicka länken till dina tre vänner.
 
-### 4. Kom igång
+### 5. Kom igång
 1. Alla fyra öppnar länken.
 2. Alla skriver in **exakt samma resekod** (hitta på valfri, t.ex. `lofoten-gang-2026`) och sitt eget namn.
 3. Klart – allt ni lägger till syns live hos alla.
@@ -56,12 +66,13 @@ Enklaste sättet – ingen installation krävs:
 Tips: lägg till appen på hemskärmen (Dela → Lägg till på hemskärmen på iPhone, eller Meny → Lägg till på startskärmen på Android) så känns det som en riktig app.
 
 ## Funktioner
-- **Rutt**: sök en plats eller klicka på kartan för att lägga till stopp på vägen upp.
-- **Boende**: lägg till varje natt med datum, plats och anteckning/länk.
+- **Rutt**: sök en plats eller klicka på kartan för att lägga till stopp på vägen upp, med automatisk beräkning av total körsträcka och körtid, plus ett körschema för vem som kör vilken dag.
+- **Boende**: lägg till varje natt med datum, plats och anteckning/länk, samt ett delat fotogalleri (och valfri länk till ett Google Foto-album för fullupplösta bilder).
 - **Rösta**: skapa omröstningar när ni behöver bestämma något tillsammans, se resultat live.
 - **Vandring**: dela idéer på leder/aktiviteter i Lofoten, gilla-markera favoriter.
-- **Packa**: gemensam, ikryssningsbar packlista.
+- **Packa**: en gemensam packlista (kan tilldelas en person) och en personlig packlista per medlem.
 - **Utgifter**: registrera utlägg, appen räknar automatiskt ut vem som är skyldig vem.
+- Appen fungerar även offline (visar senast synkade data och synkar dina ändringar när du är uppkopplad igen).
 
 ## Om ni vill bygga vidare
 Koden är enkel vanilla HTML/CSS/JS + Firebase, inga byggverktyg krävs. All logik finns i `app.js`, all styling i `style.css`.
