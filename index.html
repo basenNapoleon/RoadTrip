@@ -110,7 +110,9 @@
       <div id="packing-shared" class="subtab-panel active">
         <form id="packing-form" class="inline-form row">
           <input id="packing-item" type="text" placeholder="Sak att packa (t.ex. Tält)" required>
-          <input id="packing-assignee" type="text" placeholder="Vem tar med det? (valfritt)">
+          <select id="packing-assignee">
+            <option value="">Vem tar med det? (valfritt)</option>
+          </select>
           <button type="submit" class="primary-btn small">Lägg till</button>
         </form>
         <ul id="packing-list" class="list-card"></ul>

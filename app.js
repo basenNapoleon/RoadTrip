@@ -388,7 +388,18 @@ document.getElementById("activity-list").addEventListener("click", async (e) => 
 });
 
 // ---------- PACKING: SHARED ----------
+function renderPackingAssigneeOptions() {
+  const select = document.getElementById("packing-assignee");
+  const members = tripData.members || [];
+  const prevValue = select.value;
+  select.innerHTML = `<option value="">Vem tar med det? (valfritt)</option>` +
+    members.map((m) => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join("");
+  if (members.includes(prevValue)) select.value = prevValue;
+}
+
 function renderPacking() {
+  renderPackingAssigneeOptions();
+  const members = tripData.members || [];
   const list = document.getElementById("packing-list");
   list.innerHTML = (tripData.packing || []).map((p) => `
     <li class="list-row">
@@ -396,9 +407,15 @@ function renderPacking() {
         <label class="checkbox-row">
           <input type="checkbox" ${p.checked ? "checked" : ""} data-id="${p.id}" data-action="toggle-packing">
           <span class="${p.checked ? "checked-text" : ""}">${escapeHtml(p.text)}</span>
-          ${p.assignee ? `<span class="item-card-meta">· ${escapeHtml(p.assignee)}</span>` : ""}
         </label>
         <button class="delete-btn" data-id="${p.id}" data-action="del-packing">✕</button>
+      </div>
+      <div class="assignee-row">
+        <span class="field-label" style="margin:0;">Vem tar med:</span>
+        <select data-id="${p.id}" data-action="assign-packing">
+          <option value="">– Ingen vald –</option>
+          ${members.map((m) => `<option value="${escapeHtml(m)}" ${p.assignee === m ? "selected" : ""}>${escapeHtml(m)}</option>`).join("")}
+        </select>
       </div>
     </li>
   `).join("") || `<p class="hint">Packlistan är tom.</p>`;
@@ -407,11 +424,11 @@ function renderPacking() {
 document.getElementById("packing-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const text = document.getElementById("packing-item").value.trim();
-  const assignee = document.getElementById("packing-assignee").value.trim();
+  const assignee = document.getElementById("packing-assignee").value;
   if (!text) return;
   const updated = [...(tripData.packing || []), { id: uid(), text, checked: false, assignee }];
   await saveField("packing", updated);
-  e.target.reset();
+  document.getElementById("packing-item").value = "";
 });
 
 document.getElementById("packing-list").addEventListener("click", async (e) => {
@@ -423,12 +440,19 @@ document.getElementById("packing-list").addEventListener("click", async (e) => {
 });
 document.getElementById("packing-list").addEventListener("change", async (e) => {
   const cb = e.target.closest("[data-action='toggle-packing']");
-  if (!cb) return;
-  const updated = (tripData.packing || []).map((p) => p.id === cb.dataset.id ? { ...p, checked: cb.checked } : p);
-  await saveField("packing", updated);
+  if (cb) {
+    const updated = (tripData.packing || []).map((p) => p.id === cb.dataset.id ? { ...p, checked: cb.checked } : p);
+    await saveField("packing", updated);
+    return;
+  }
+  const assignSelect = e.target.closest("[data-action='assign-packing']");
+  if (assignSelect) {
+    const updated = (tripData.packing || []).map((p) => p.id === assignSelect.dataset.id ? { ...p, assignee: assignSelect.value } : p);
+    await saveField("packing", updated);
+  }
 });
 
-// ---------- PACKING: PERSONAL (per member, editable only by owner) ----------
+// ---------- PACKING: PERSONAL (own items editable only by owner; shared items assigned to this person show up too and stay linked to the shared list) ----------
 let personalPackingViewer = null;
 
 function renderPersonalPacking() {
@@ -441,10 +465,22 @@ function renderPersonalPacking() {
   personalPackingViewer = select.value;
 
   const isMine = personalPackingViewer === myName;
-  const personal = (tripData.personalPacking && tripData.personalPacking[personalPackingViewer]) || [];
+  const own = (tripData.personalPacking && tripData.personalPacking[personalPackingViewer]) || [];
+  const assignedShared = (tripData.packing || []).filter((p) => p.assignee === personalPackingViewer);
 
-  const listEl = document.getElementById("personal-packing-list");
-  listEl.innerHTML = personal.map((p) => `
+  const assignedHtml = assignedShared.map((p) => `
+    <li class="list-row">
+      <div class="item-row">
+        <label class="checkbox-row">
+          <input type="checkbox" ${p.checked ? "checked" : ""} data-id="${p.id}" data-action="toggle-assigned-packing">
+          <span class="${p.checked ? "checked-text" : ""}">${escapeHtml(p.text)}</span>
+        </label>
+        <span class="tag-shared">Gemensamt</span>
+      </div>
+    </li>
+  `).join("");
+
+  const ownHtml = own.map((p) => `
     <li class="list-row">
       <div class="item-row">
         <label class="checkbox-row">
@@ -454,7 +490,10 @@ function renderPersonalPacking() {
         ${isMine ? `<button class="delete-btn" data-id="${p.id}" data-action="del-personal-packing">✕</button>` : ""}
       </div>
     </li>
-  `).join("") || `<p class="hint">${isMine ? "Din personliga packlista är tom." : escapeHtml(personalPackingViewer) + " har inte lagt till något än."}</p>`;
+  `).join("");
+
+  const listEl = document.getElementById("personal-packing-list");
+  listEl.innerHTML = (assignedHtml + ownHtml) || `<p class="hint">${isMine ? "Din personliga packlista är tom." : escapeHtml(personalPackingViewer) + " har inte lagt till något än."}</p>`;
 
   document.getElementById("personal-packing-form").classList.toggle("hidden", !isMine);
   document.getElementById("personal-packing-readonly-hint").classList.toggle("hidden", isMine);
@@ -484,6 +523,14 @@ document.getElementById("personal-packing-list").addEventListener("click", async
   await updateDoc(tripRef(), { [`personalPacking.${myName}`]: updated });
 });
 document.getElementById("personal-packing-list").addEventListener("change", async (e) => {
+  // shared items assigned to whoever we're viewing: anyone can check these off, same record as the Gemensamt tab
+  const sharedCb = e.target.closest("[data-action='toggle-assigned-packing']");
+  if (sharedCb) {
+    const updated = (tripData.packing || []).map((p) => p.id === sharedCb.dataset.id ? { ...p, checked: sharedCb.checked } : p);
+    await saveField("packing", updated);
+    return;
+  }
+  // own personal items: only the owner can toggle
   if (personalPackingViewer !== myName) return;
   const cb = e.target.closest("[data-action='toggle-personal-packing']");
   if (!cb) return;

@@ -263,6 +263,34 @@ select { appearance: none; -webkit-appearance: none; background-image: linear-gr
   gap: 10px;
 }
 
+.assignee-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--divider);
+}
+.assignee-row select {
+  width: auto;
+  flex: 1;
+  padding: 8px 30px 8px 10px;
+  font-size: 0.85rem;
+  background-color: var(--bg-input);
+}
+
+.tag-shared {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 3px 9px;
+  border-radius: 980px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
 .delete-btn {
   background: var(--danger-soft);
   border: none;
