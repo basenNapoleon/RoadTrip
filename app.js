@@ -41,7 +41,6 @@ const emptyTrip = () => ({
   personalPacking: {},
   expenses: [],
   driving: [],
-  photoAlbumLink: "",
   photos: []
 });
 
@@ -140,7 +139,6 @@ function renderAll() {
   renderPersonalPacking();
   renderExpenses();
   renderDriving();
-  renderPhotoAlbum();
   renderPhotos();
 }
 
@@ -449,36 +447,6 @@ document.getElementById("photo-upload-btn").addEventListener("click", async () =
   } catch (err) {
     status.textContent = "Uppladdningen misslyckades: " + err.message;
   }
-});
-
-// ---------- SHARED PHOTO ALBUM LINK ----------
-// Google shut down the Photos Library API's shared-album endpoints in March 2025, and the
-// replacement Picker API needs a per-person Google sign-in plus a manual picker each time, with
-// image URLs that expire after 60 minutes - not workable for a persistent embedded gallery.
-// So instead: whoever makes the actual shared album in the Google Photos app pastes the
-// invite link here once, and everyone gets a one-tap button straight into the real album.
-function renderPhotoAlbum() {
-  const input = document.getElementById("photo-album-link");
-  const openLink = document.getElementById("photo-album-open");
-  if (document.activeElement !== input) {
-    input.value = tripData.photoAlbumLink || "";
-  }
-  if (tripData.photoAlbumLink) {
-    openLink.href = tripData.photoAlbumLink;
-    openLink.classList.remove("hidden");
-  } else {
-    openLink.classList.add("hidden");
-  }
-}
-
-document.getElementById("photo-album-save").addEventListener("click", async () => {
-  const input = document.getElementById("photo-album-link");
-  const value = input.value.trim();
-  if (value && !/^https?:\/\//i.test(value)) {
-    alert("Länken ser inte helt rätt ut - den bör börja med https://");
-    return;
-  }
-  await saveField("photoAlbumLink", value);
 });
 
 // ---------- POLLS ----------

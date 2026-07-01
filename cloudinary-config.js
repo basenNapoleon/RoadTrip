@@ -9,6 +9,6 @@
 // ============================================================
 
 export const cloudinaryConfig = {
-  cloudName: "gpmydv5i",
-  uploadPreset: "ywwmj7lu"
+  cloudName: "FYLL_I_cloud_name",
+  uploadPreset: "FYLL_I_upload_preset"
 };

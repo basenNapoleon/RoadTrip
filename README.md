@@ -67,7 +67,7 @@ Tips: lägg till appen på hemskärmen (Dela → Lägg till på hemskärmen på 
 
 ## Funktioner
 - **Rutt**: sök en plats eller klicka på kartan för att lägga till stopp på vägen upp, med automatisk beräkning av total körsträcka och körtid, plus ett körschema för vem som kör vilken dag.
-- **Boende**: lägg till varje natt med datum, plats och anteckning/länk, samt ett delat fotogalleri (och valfri länk till ett Google Foto-album för fullupplösta bilder).
+- **Boende**: lägg till varje natt med datum, plats och anteckning/länk, samt ett delat fotogalleri.
 - **Rösta**: skapa omröstningar när ni behöver bestämma något tillsammans, se resultat live.
 - **Vandring**: dela idéer på leder/aktiviteter i Lofoten, gilla-markera favoriter.
 - **Packa**: en gemensam packlista (kan tilldelas en person) och en personlig packlista per medlem.
