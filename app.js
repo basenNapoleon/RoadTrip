@@ -195,13 +195,19 @@ function renderStops() {
     marker.bindPopup(`<b>${escapeHtml(s.name)}</b>${s.note ? "<br>" + escapeHtml(s.note) : ""}`);
   });
 
+  const stopsArr = tripData.stops || [];
   const list = document.getElementById("stop-list");
-  list.innerHTML = (tripData.stops || []).map((s) => `
+  list.innerHTML = stopsArr.map((s, idx) => `
     <li class="list-row">
       <div class="item-row">
-        <div>
+        <div class="stop-order-badge">${idx + 1}</div>
+        <div style="flex:1;">
           <div class="item-card-title">${escapeHtml(s.name)}</div>
           ${s.note ? `<div class="item-card-note">${escapeHtml(s.note)}</div>` : ""}
+        </div>
+        <div class="reorder-btns">
+          <button class="reorder-btn" data-id="${s.id}" data-action="move-stop-up" ${idx === 0 ? "disabled" : ""} title="Flytta upp">▲</button>
+          <button class="reorder-btn" data-id="${s.id}" data-action="move-stop-down" ${idx === stopsArr.length - 1 ? "disabled" : ""} title="Flytta ner">▼</button>
         </div>
         <button class="delete-btn" data-id="${s.id}" data-action="del-stop">✕</button>
       </div>
@@ -209,6 +215,14 @@ function renderStops() {
   `).join("") || `<p class="hint">Inga stopp tillagda än.</p>`;
 
   renderRouteSummary();
+}
+
+function moveItem(arr, index, direction) {
+  const newIndex = index + direction;
+  if (newIndex < 0 || newIndex >= arr.length) return arr;
+  const copy = [...arr];
+  [copy[index], copy[newIndex]] = [copy[newIndex], copy[index]];
+  return copy;
 }
 
 // ---------- ROUTE DISTANCE/TIME (order = the order stops appear in the list above) ----------
@@ -284,9 +298,20 @@ document.getElementById("stop-form").addEventListener("submit", async (e) => {
 });
 
 document.getElementById("stop-list").addEventListener("click", async (e) => {
-  const btn = e.target.closest("[data-action='del-stop']");
-  if (!btn) return;
-  const updated = (tripData.stops || []).filter((s) => s.id !== btn.dataset.id);
+  const delBtn = e.target.closest("[data-action='del-stop']");
+  if (delBtn) {
+    const updated = (tripData.stops || []).filter((s) => s.id !== delBtn.dataset.id);
+    await saveField("stops", updated);
+    return;
+  }
+  const upBtn = e.target.closest("[data-action='move-stop-up']");
+  const downBtn = e.target.closest("[data-action='move-stop-down']");
+  const moveBtn = upBtn || downBtn;
+  if (!moveBtn) return;
+  const stops = tripData.stops || [];
+  const index = stops.findIndex((s) => s.id === moveBtn.dataset.id);
+  if (index === -1) return;
+  const updated = moveItem(stops, index, upBtn ? -1 : 1);
   await saveField("stops", updated);
 });
 

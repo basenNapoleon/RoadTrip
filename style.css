@@ -260,6 +260,51 @@ select { appearance: none; -webkit-appearance: none; background-image: linear-gr
 .inline-form.row { flex-direction: row; flex-wrap: wrap; }
 .inline-form.row > input, .inline-form.row > select { flex: 1; min-width: 140px; }
 
+.stop-order-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.reorder-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.reorder-btn {
+  position: relative;
+  width: 26px;
+  height: 20px;
+  border: none;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.reorder-btn::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+}
+.reorder-btn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+.reorder-btn:active:not(:disabled) { background: var(--accent-soft); color: var(--accent); }
+
 .list-card {
   list-style: none;
   padding: 0;
