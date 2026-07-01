@@ -8,7 +8,7 @@
   --accent-ink: #04140f;
   --text: #f2f6f7;
   --text-secondary: #9fb2bc;
-  --text-tertiary: #647a86;
+  --text-tertiary: #7691a0;
   --divider: rgba(255, 255, 255, 0.08);
   --danger: #ff453a;
   --danger-soft: rgba(255, 69, 58, 0.14);
@@ -156,6 +156,7 @@ select { appearance: none; -webkit-appearance: none; background-image: linear-gr
   gap: 4px;
 }
 .member-remove {
+  position: relative;
   background: none;
   border: none;
   color: var(--text-tertiary);
@@ -168,6 +169,12 @@ select { appearance: none; -webkit-appearance: none; background-image: linear-gr
   justify-content: center;
   cursor: pointer;
   line-height: 1;
+}
+/* invisible larger hit area around the small visible dot, closer to Apple's 44x44pt touch target guidance */
+.member-remove::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
 }
 .member-remove:active { color: var(--danger); background: var(--danger-soft); }
 
@@ -292,6 +299,7 @@ select { appearance: none; -webkit-appearance: none; background-image: linear-gr
 }
 
 .delete-btn {
+  position: relative;
   background: var(--danger-soft);
   border: none;
   color: var(--danger);
@@ -307,6 +315,12 @@ select { appearance: none; -webkit-appearance: none; background-image: linear-gr
   transition: transform 0.12s ease;
 }
 .delete-btn:active { transform: scale(0.9); }
+/* invisible larger hit area so the tap target is closer to Apple's 44x44pt guidance, without visually enlarging the row */
+.delete-btn::before {
+  content: "";
+  position: absolute;
+  inset: -9px;
+}
 
 .checkbox-row { display: flex; align-items: center; gap: 12px; flex: 1; }
 .checkbox-row input[type="checkbox"] {
