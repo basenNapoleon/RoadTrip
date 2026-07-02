@@ -322,6 +322,23 @@ select { appearance: none; -webkit-appearance: none; background-image: linear-gr
 .list-row:last-child { border-bottom: none; }
 .list-row:active { background: rgba(255, 255, 255, 0.03); }
 
+/* Packing rows: tighter than regular list rows so a long list stays scannable, and
+   checked-off items shrink further so packed stuff visually gets out of the way. */
+.packing-row {
+  padding: 8px 16px;
+  transition: padding 0.15s ease, opacity 0.15s ease;
+}
+.packing-row .checkbox-row { gap: 10px; }
+.packing-row .checkbox-row input[type="checkbox"] { width: 20px; height: 20px; max-width: 20px; }
+.packing-row .checkbox-row input[type="checkbox"]:checked::after { width: 5px; height: 9px; }
+.packing-row .assignee-row { margin-top: 6px; padding-top: 6px; }
+.packing-row.is-checked {
+  padding: 4px 16px;
+  opacity: 0.6;
+}
+.packing-row.is-checked .checkbox-row span { font-size: 0.82rem; }
+.packing-row.is-checked .assignee-row { display: none; }
+
 .item-card-title { font-weight: 600; margin-bottom: 2px; font-size: 0.98rem; }
 .item-card-meta { font-size: 0.8rem; color: var(--text-secondary); }
 .item-card-note { font-size: 0.9rem; margin-top: 4px; color: var(--text-secondary); }

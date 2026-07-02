@@ -610,7 +610,7 @@ function renderPacking() {
   const members = tripData.members || [];
   const list = document.getElementById("packing-list");
   list.innerHTML = (tripData.packing || []).map((p) => `
-    <li class="list-row">
+    <li class="list-row packing-row ${p.checked ? "is-checked" : ""}">
       <div class="item-row">
         <label class="checkbox-row">
           <input type="checkbox" ${p.checked ? "checked" : ""} data-id="${p.id}" data-action="toggle-packing">
@@ -677,7 +677,7 @@ function renderPersonalPacking() {
   const assignedShared = (tripData.packing || []).filter((p) => p.assignee === personalPackingViewer);
 
   const assignedHtml = assignedShared.map((p) => `
-    <li class="list-row">
+    <li class="list-row packing-row ${p.checked ? "is-checked" : ""}">
       <div class="item-row">
         <label class="checkbox-row">
           <input type="checkbox" ${p.checked ? "checked" : ""} data-id="${p.id}" data-action="toggle-assigned-packing">
@@ -689,7 +689,7 @@ function renderPersonalPacking() {
   `).join("");
 
   const ownHtml = own.map((p) => `
-    <li class="list-row">
+    <li class="list-row packing-row ${p.checked ? "is-checked" : ""}">
       <div class="item-row">
         <label class="checkbox-row">
           <input type="checkbox" ${p.checked ? "checked" : ""} ${isMine ? "" : "disabled"} data-id="${p.id}" data-action="toggle-personal-packing">
