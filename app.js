@@ -660,6 +660,29 @@ document.getElementById("packing-list").addEventListener("change", async (e) => 
   }
 });
 
+// paste a whole list at once - split on line breaks and/or commas
+function parseImportLines(raw) {
+  return raw
+    .split(/[\n,]+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+document.getElementById("packing-import-toggle").addEventListener("click", () => {
+  document.getElementById("packing-import-panel").classList.toggle("hidden");
+});
+
+document.getElementById("packing-import-btn").addEventListener("click", async () => {
+  const textarea = document.getElementById("packing-import-text");
+  const items = parseImportLines(textarea.value);
+  if (!items.length) return;
+  const newItems = items.map((text) => ({ id: uid(), text, checked: false, assignee: "" }));
+  const updated = [...(tripData.packing || []), ...newItems];
+  await saveField("packing", updated);
+  textarea.value = "";
+  document.getElementById("packing-import-panel").classList.add("hidden");
+});
+
 // ---------- PACKING: PERSONAL (own items editable only by owner; shared items assigned to this person show up too and stay linked to the shared list) ----------
 let personalPackingViewer = null;
 
@@ -704,6 +727,8 @@ function renderPersonalPacking() {
   listEl.innerHTML = (assignedHtml + ownHtml) || `<p class="hint">${isMine ? "Din personliga packlista är tom." : escapeHtml(personalPackingViewer) + " har inte lagt till något än."}</p>`;
 
   document.getElementById("personal-packing-form").classList.toggle("hidden", !isMine);
+  document.getElementById("personal-packing-import-toggle").classList.toggle("hidden", !isMine);
+  if (!isMine) document.getElementById("personal-packing-import-panel").classList.add("hidden");
   document.getElementById("personal-packing-readonly-hint").classList.toggle("hidden", isMine);
 }
 
@@ -720,6 +745,22 @@ document.getElementById("personal-packing-form").addEventListener("submit", asyn
   const updated = [...current, { id: uid(), text, checked: false }];
   await updateDoc(tripRef(), { [`personalPacking.${myName}`]: updated });
   e.target.reset();
+});
+
+document.getElementById("personal-packing-import-toggle").addEventListener("click", () => {
+  document.getElementById("personal-packing-import-panel").classList.toggle("hidden");
+});
+
+document.getElementById("personal-packing-import-btn").addEventListener("click", async () => {
+  const textarea = document.getElementById("personal-packing-import-text");
+  const items = parseImportLines(textarea.value);
+  if (!items.length) return;
+  const newItems = items.map((text) => ({ id: uid(), text, checked: false }));
+  const current = (tripData.personalPacking && tripData.personalPacking[myName]) || [];
+  const updated = [...current, ...newItems];
+  await updateDoc(tripRef(), { [`personalPacking.${myName}`]: updated });
+  textarea.value = "";
+  document.getElementById("personal-packing-import-panel").classList.add("hidden");
 });
 
 document.getElementById("personal-packing-list").addEventListener("click", async (e) => {

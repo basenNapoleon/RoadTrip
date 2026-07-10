@@ -86,7 +86,7 @@ label {
   font-weight: 500;
 }
 
-input, select {
+input, select, textarea {
   width: 100%;
   padding: 13px 14px;
   border-radius: 12px;
@@ -97,11 +97,23 @@ input, select {
   font-family: inherit;
   transition: box-shadow 0.15s ease;
 }
-input:focus, select:focus {
+input:focus, select:focus, textarea:focus {
   outline: none;
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
-input::placeholder { color: var(--text-tertiary); }
+input::placeholder, textarea::placeholder { color: var(--text-tertiary); }
+textarea { resize: vertical; }
+
+.import-toggle-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 4px 2px;
+  margin-bottom: 12px;
+  cursor: pointer;
+}
 
 input[type="date"] {
   max-width: 190px;

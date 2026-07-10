@@ -138,6 +138,12 @@
           </select>
           <button type="submit" class="primary-btn small">Lägg till</button>
         </form>
+        <button id="packing-import-toggle" class="import-toggle-btn" type="button">+ Importera flera på en gång</button>
+        <div id="packing-import-panel" class="inline-form hidden">
+          <label class="field-label">Klistra in lista</label>
+          <textarea id="packing-import-text" rows="4" placeholder="En grej per rad, eller separerat med kommatecken"></textarea>
+          <button id="packing-import-btn" type="button" class="primary-btn small">Lägg till alla</button>
+        </div>
         <ul id="packing-list" class="list-card"></ul>
       </div>
 
@@ -150,6 +156,12 @@
           <input id="personal-packing-item" type="text" placeholder="Sak till din egen packlista" required>
           <button type="submit" class="primary-btn small">Lägg till</button>
         </form>
+        <button id="personal-packing-import-toggle" class="import-toggle-btn hidden" type="button">+ Importera flera på en gång</button>
+        <div id="personal-packing-import-panel" class="inline-form hidden">
+          <label class="field-label">Klistra in lista</label>
+          <textarea id="personal-packing-import-text" rows="4" placeholder="En grej per rad, eller separerat med kommatecken"></textarea>
+          <button id="personal-packing-import-btn" type="button" class="primary-btn small">Lägg till alla</button>
+        </div>
         <p id="personal-packing-readonly-hint" class="hint hidden">Det här är någon annans lista – du kan bara se den, inte redigera.</p>
         <ul id="personal-packing-list" class="list-card"></ul>
       </div>
