@@ -33,6 +33,7 @@
     <label>Ditt namn</label>
     <input id="join-name" type="text" placeholder="t.ex. Oskar" autocomplete="off">
     <button id="join-btn" class="primary-btn">Gå med i resan</button>
+    <button id="join-back-btn" class="import-toggle-btn hidden" type="button"></button>
     <p class="hint">Första gången? Hitta på en resekod ingen annan använder. De andra skriver in samma kod, så hamnar ni i samma resa.</p>
   </div>
 </div>
@@ -42,7 +43,7 @@
 
   <header class="topbar">
     <div class="topbar-title">
-      <span id="trip-code-label"></span>
+      <button id="trip-switch-btn" class="trip-tag" type="button" aria-haspopup="dialog" title="Byt resa"><span id="trip-code-label"></span></button>
     </div>
     <div class="topbar-members" id="members-list"></div>
   </header>
@@ -163,6 +164,13 @@
   </nav>
 
 </div>
+
+<dialog id="trips-dialog" class="trips-dialog">
+  <h2>Dina resor</h2>
+  <ul id="trips-list" class="list-card"></ul>
+  <button id="trips-join-btn" class="primary-btn" type="button">Gå med i annan resa</button>
+  <button id="trips-close-btn" class="import-toggle-btn" type="button">Stäng</button>
+</dialog>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module" src="app.js"></script>
