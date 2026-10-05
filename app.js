@@ -29,6 +29,48 @@ let unsub = null;
 let map, mapMarkersLayer;
 let pendingClickLatLng = null;
 let mapFittedToStops = false;
+const DEFAULT_MAP_VIEW = { center: [62, 15], zoom: 4 }; // the Nordics, until the trip has stops
+
+// ---------- Saved trips (the trips this device has joined, so you can switch between them) ----------
+function loadTrips() {
+  try {
+    return JSON.parse(localStorage.getItem("roadtrip_trips")) || [];
+  } catch (err) {
+    return [];
+  }
+}
+function saveTrips(trips) {
+  localStorage.setItem("roadtrip_trips", JSON.stringify(trips));
+}
+function rememberTrip(code, name) {
+  saveTrips([...loadTrips().filter((t) => t.code !== code), { code, name }]);
+}
+function forgetTrip(code) {
+  saveTrips(loadTrips().filter((t) => t.code !== code));
+}
+// the trip you were already in before this list existed
+if (tripCode && myName && !loadTrips().some((t) => t.code === tripCode)) {
+  rememberTrip(tripCode, myName);
+}
+
+// make `code` the active trip and load it, dropping everything that belonged to the previous one
+async function switchTrip(code, name) {
+  tripCode = code;
+  myName = name;
+  localStorage.setItem("lofoten_tripcode", tripCode);
+  localStorage.setItem("lofoten_name", myName);
+  tripData = null;
+  pendingClickLatLng = null;
+  personalPackingViewer = null;
+  mapFittedToStops = false;
+  if (map) {
+    map.closePopup();
+    map.setView(DEFAULT_MAP_VIEW.center, DEFAULT_MAP_VIEW.zoom);
+  }
+  // the map can only frame the new trip's stops while its tab is visible
+  document.querySelector(".nav-btn[data-tab='tab-route']").click();
+  await enterTrip();
+}
 
 const emptyTrip = () => ({
   members: [],
@@ -62,14 +104,21 @@ document.getElementById("join-btn").addEventListener("click", async () => {
     alert("Fyll i både resekod och namn.");
     return;
   }
-  tripCode = codeInput.toLowerCase().replace(/\s+/g, "-");
-  myName = nameInput;
-  localStorage.setItem("lofoten_tripcode", tripCode);
-  localStorage.setItem("lofoten_name", myName);
-  await enterTrip();
+  const code = codeInput.toLowerCase().replace(/\s+/g, "-");
+  rememberTrip(code, nameInput);
+  await switchTrip(code, nameInput);
+});
+
+// only shown when you came here from a trip ("Gå med i annan resa")
+document.getElementById("join-back-btn").addEventListener("click", () => {
+  joinScreen.classList.add("hidden");
+  appShell.classList.remove("hidden");
+  if (map) setTimeout(() => map.invalidateSize(), 50);
 });
 
 async function enterTrip() {
+  if (unsub) unsub(); // stop listening to the trip we are leaving
+  unsub = null;
   joinScreen.classList.add("hidden");
   appShell.classList.remove("hidden");
   document.getElementById("trip-code-label").textContent = tripCode;
@@ -86,19 +135,74 @@ async function enterTrip() {
     await updateDoc(tripRef, { members: [...current.members, myName] });
   }
 
-  if (unsub) unsub();
   unsub = onSnapshot(tripRef, (docSnap) => {
     tripData = docSnap.data() || emptyTrip();
     renderAll();
   });
 
   initMap();
+  setTimeout(() => map.invalidateSize(), 50); // the shell may just have been un-hidden
 }
 
 // auto-join on reload if we already have saved credentials
 if (tripCode && myName) {
   enterTrip();
 }
+
+// ---------- Trip switcher (tap the luggage tag) ----------
+const tripsDialog = document.getElementById("trips-dialog");
+
+function renderTripsList() {
+  document.getElementById("trips-list").innerHTML = loadTrips().map((t) => {
+    const isCurrent = t.code === tripCode;
+    return `
+    <li class="list-row">
+      <div class="item-row">
+        <button class="trip-row-btn" data-code="${escapeHtml(t.code)}" data-action="switch-trip" ${isCurrent ? "disabled" : ""}>
+          <span class="item-card-title">${escapeHtml(t.code)}</span>
+          <span class="item-card-meta">som ${escapeHtml(t.name)}</span>
+        </button>
+        ${isCurrent
+          ? `<span class="tag-shared">Här är du</span>`
+          : `<button class="delete-btn" data-code="${escapeHtml(t.code)}" data-action="forget-trip" title="Ta bort från listan">✕</button>`}
+      </div>
+    </li>`;
+  }).join("");
+}
+
+document.getElementById("trip-switch-btn").addEventListener("click", () => {
+  renderTripsList();
+  tripsDialog.showModal();
+});
+document.getElementById("trips-close-btn").addEventListener("click", () => tripsDialog.close());
+
+document.getElementById("trips-list").addEventListener("click", async (e) => {
+  const forgetBtn = e.target.closest("[data-action='forget-trip']");
+  if (forgetBtn) {
+    const code = forgetBtn.dataset.code;
+    if (!confirm(`Ta bort "${code}" från listan på den här enheten? Resan finns kvar, och du kan gå med igen med samma kod.`)) return;
+    forgetTrip(code);
+    renderTripsList();
+    return;
+  }
+  const switchBtn = e.target.closest("[data-action='switch-trip']");
+  if (!switchBtn) return;
+  const trip = loadTrips().find((t) => t.code === switchBtn.dataset.code);
+  if (!trip) return;
+  tripsDialog.close();
+  await switchTrip(trip.code, trip.name);
+});
+
+document.getElementById("trips-join-btn").addEventListener("click", () => {
+  tripsDialog.close();
+  document.getElementById("join-tripcode").value = "";
+  document.getElementById("join-name").value = myName;
+  const backBtn = document.getElementById("join-back-btn");
+  backBtn.textContent = `Tillbaka till ${tripCode}`;
+  backBtn.classList.remove("hidden");
+  appShell.classList.add("hidden");
+  joinScreen.classList.remove("hidden");
+});
 
 // ---------- Firestore write helpers ----------
 function tripRef() {
@@ -150,6 +254,7 @@ document.getElementById("members-list").addEventListener("click", async (e) => {
   await saveField("members", updated);
   // if you removed yourself, forget local join info so you get the join screen again
   if (name === myName) {
+    forgetTrip(tripCode);
     localStorage.removeItem("lofoten_tripcode");
     localStorage.removeItem("lofoten_name");
   }
@@ -164,7 +269,7 @@ function escapeHtml(str) {
 // ---------- STOPS / MAP ----------
 function initMap() {
   if (map) return;
-  map = L.map("map").setView([62, 15], 4); // default view: the Nordics, until the trip has stops
+  map = L.map("map").setView(DEFAULT_MAP_VIEW.center, DEFAULT_MAP_VIEW.zoom);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: "&copy; OpenStreetMap-bidragsgivare"
   }).addTo(map);
