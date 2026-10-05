@@ -3,14 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Lofoten Roadtrip</title>
-<meta name="theme-color" content="#0b1520">
+<title>Roadtrip</title>
+<meta name="theme-color" content="#4a2d17">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Lofoten">
+<meta name="apple-mobile-web-app-title" content="Roadtrip">
 <link rel="icon" href="favicon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Special+Elite&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -18,15 +21,19 @@
 <!-- JOIN SCREEN -->
 <div id="join-screen" class="screen">
   <div class="join-card">
+    <svg class="sticker sticker-oval" viewBox="0 0 150 86" aria-hidden="true"><ellipse cx="75" cy="43" rx="72" ry="40" fill="#c8962e" stroke="#2e2416" stroke-width="3"/><ellipse cx="75" cy="43" rx="63" ry="32" fill="none" stroke="#2e2416" stroke-width="1.2"/><text x="75" y="40" text-anchor="middle" font-size="21">Grand Tour</text><text x="75" y="60" text-anchor="middle" font-size="12" class="typed">bil, tält och karta</text></svg>
+    <svg class="sticker sticker-round" viewBox="0 0 110 110" aria-hidden="true"><circle cx="55" cy="55" r="52" fill="#2f5d62" stroke="#efe3c4" stroke-width="3"/><circle cx="55" cy="55" r="34" fill="none" stroke="#efe3c4" stroke-width="1.5"/><path id="rt-arc" d="M55 55 m-42 0 a42 42 0 1 1 84 0 a42 42 0 1 1 -84 0" fill="none"/><text font-size="12.5" fill="#efe3c4" letter-spacing="2.2"><textPath href="#rt-arc">LÅNGA VÄGEN HEM ✶ LÅNGA VÄGEN HEM ✶</textPath></text><path d="M55 30 61 49 80 55 61 61 55 80 49 61 30 55 49 49Z" fill="#efe3c4"/></svg>
+    <svg class="sticker sticker-pennant" viewBox="0 0 150 64" aria-hidden="true"><path d="M3 4 147 32 3 60Z" fill="#b3261e" stroke="#2e2416" stroke-width="3" stroke-linejoin="round"/><path d="M12 14 110 32 12 50" fill="none" stroke="#efe3c4" stroke-width="1.2"/><text x="20" y="39" font-size="19" fill="#efe3c4">Norrut</text></svg>
+    <svg class="sticker sticker-label" viewBox="0 0 130 60" aria-hidden="true"><rect x="3" y="3" width="124" height="54" fill="#efe3c4" stroke="#b3261e" stroke-width="3"/><rect x="9" y="9" width="112" height="42" fill="none" stroke="#b3261e" stroke-width="1"/><text x="65" y="38" text-anchor="middle" font-size="22" fill="#b3261e">Ömtåligt</text></svg>
     <img src="apple-touch-icon.png" alt="" class="join-icon">
-    <h1>Lofoten Roadtrip</h1>
+    <h1>Roadtrip</h1>
     <p class="subtitle">Skriv in samma resekod som dina vänner för att se och redigera samma resa live.</p>
     <label>Resekod</label>
-    <input id="join-tripcode" type="text" placeholder="t.ex. lofoten-gang-2026" autocomplete="off">
+    <input id="join-tripcode" type="text" placeholder="t.ex. sommar-gang-2027" autocomplete="off">
     <label>Ditt namn</label>
     <input id="join-name" type="text" placeholder="t.ex. Oskar" autocomplete="off">
     <button id="join-btn" class="primary-btn">Gå med i resan</button>
-    <p class="hint">Första gången? Hitta bara på en resekod ingen annan använder – de andra tre skriver in samma kod så hamnar ni i samma resa.</p>
+    <p class="hint">Första gången? Hitta på en resekod ingen annan använder. De andra skriver in samma kod, så hamnar ni i samma resa.</p>
   </div>
 </div>
 
@@ -48,47 +55,13 @@
       <h2>Rutt & stopp</h2>
       <div id="map"></div>
       <form id="stop-form" class="inline-form">
-        <input id="stop-name" type="text" placeholder="Namn på stopp (t.ex. Trollstigen)" required>
+        <input id="stop-name" type="text" placeholder="Namn på stopp (t.ex. Höga kusten)" required>
         <input id="stop-note" type="text" placeholder="Anteckning (valfritt)">
         <button type="submit" class="primary-btn small">Sök & lägg till stopp</button>
       </form>
       <p class="hint">Sök på en plats ovan, eller klicka direkt på kartan för att släppa en pin.</p>
       <div id="route-summary" class="summary-box hidden"></div>
       <ul id="stop-list" class="list-card"></ul>
-
-      <h3 class="section-heading">Körschema</h3>
-      <form id="driving-form" class="inline-form">
-        <label class="field-label">Datum</label>
-        <input id="driving-date" type="date" required>
-        <select id="driving-driver" required>
-          <option value="">Vem kör?</option>
-        </select>
-        <input id="driving-note" type="text" placeholder="Etapp (t.ex. Oslo → Trondheim)">
-        <button type="submit" class="primary-btn small">Lägg till</button>
-      </form>
-      <ul id="driving-list" class="list-card"></ul>
-    </section>
-
-    <!-- BOENDE & SCHEMA -->
-    <section id="tab-stay" class="tab-panel">
-      <h2>Boende & dag-för-dag</h2>
-      <form id="stay-form" class="inline-form">
-        <label class="field-label">Datum</label>
-        <input id="stay-date" type="date" required>
-        <input id="stay-place" type="text" placeholder="Var sover ni? (t.ex. Tälta vid Kvalvika)" required>
-        <input id="stay-note" type="text" placeholder="Anteckning / länk (valfritt)">
-        <button type="submit" class="primary-btn small">Lägg till natt</button>
-      </form>
-      <ul id="stay-list" class="list-card"></ul>
-
-      <h3 class="section-heading">Delade bilder</h3>
-      <div class="inline-form">
-        <label class="field-label">Ladda upp bild</label>
-        <input id="photo-upload-input" type="file" accept="image/*">
-        <button id="photo-upload-btn" class="primary-btn small">Ladda upp</button>
-        <p id="photo-upload-status" class="hint hidden" style="margin:0;"></p>
-      </div>
-      <div id="photo-grid" class="photo-grid"></div>
     </section>
 
     <!-- RÖSTNING -->
@@ -100,19 +73,6 @@
         <button type="submit" class="primary-btn small">Skapa omröstning</button>
       </form>
       <ul id="poll-list" class="list-card"></ul>
-    </section>
-
-    <!-- AKTIVITETER -->
-    <section id="tab-activities" class="tab-panel">
-      <h2>Vandringar & aktiviteter</h2>
-      <form id="activity-form" class="inline-form">
-        <input id="activity-name" type="text" placeholder="Namn (t.ex. Reinebringen)" required>
-        <input id="activity-difficulty" type="text" placeholder="Svårighetsgrad (t.ex. Medel)">
-        <input id="activity-duration" type="text" placeholder="Tidsåtgång (t.ex. 3-4h)">
-        <input id="activity-note" type="text" placeholder="Anteckning (valfritt)">
-        <button type="submit" class="primary-btn small">Lägg till förslag</button>
-      </form>
-      <ul id="activity-list" class="list-card"></ul>
     </section>
 
     <!-- PACKLISTA -->
@@ -188,17 +148,9 @@
       <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-7.2 7-12a7 7 0 1 0-14 0c0 4.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.4"/></svg>
       <span>Rutt</span>
     </button>
-    <button class="nav-btn" data-tab="tab-stay">
-      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 21 20H15L12 12.5 9 20H3Z"/><path d="M12 12.5 10.3 20M12 12.5 13.7 20"/></svg>
-      <span>Boende</span>
-    </button>
     <button class="nav-btn" data-tab="tab-vote">
       <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M8 12.3 10.8 15 16 9.2"/></svg>
       <span>Rösta</span>
-    </button>
-    <button class="nav-btn" data-tab="tab-activities">
-      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19 8.5 8.5 12 14.5 14.5 10.5 21 19Z"/></svg>
-      <span>Vandring</span>
     </button>
     <button class="nav-btn" data-tab="tab-packing">
       <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="8.5" width="14" height="11.5" rx="2.3"/><path d="M9 8.5V6.3a3 3 0 0 1 6 0V8.5"/><path d="M9 12v1.8M15 12v1.8"/></svg>
