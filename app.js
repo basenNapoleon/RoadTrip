@@ -4,13 +4,12 @@ import {
   doc, onSnapshot, setDoc, updateDoc, getDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
-import { cloudinaryConfig } from "./cloudinary-config.js";
 
 // ---------- Firebase setup ----------
 const app = initializeApp(firebaseConfig);
 
 // Offline cache: keeps the last-synced trip data available (and queues your edits)
-// even without signal, which matters a lot in parts of Lofoten. Falls back to a
+// even without signal, which matters a lot on remote roads. Falls back to a
 // plain online-only connection if the browser doesn't support it.
 let db;
 try {
@@ -29,19 +28,16 @@ let tripData = null; // live mirror of the firestore doc
 let unsub = null;
 let map, mapMarkersLayer;
 let pendingClickLatLng = null;
+let mapFittedToStops = false;
 
 const emptyTrip = () => ({
   members: [],
   stops: [],
-  stays: [],
   itinerary: [],
   polls: [],
-  activities: [],
   packing: [],
   personalPacking: {},
-  expenses: [],
-  driving: [],
-  photos: []
+  expenses: []
 });
 
 const uid = () => Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
@@ -76,7 +72,7 @@ document.getElementById("join-btn").addEventListener("click", async () => {
 async function enterTrip() {
   joinScreen.classList.add("hidden");
   appShell.classList.remove("hidden");
-  document.getElementById("trip-code-label").textContent = "🏔️ " + tripCode;
+  document.getElementById("trip-code-label").textContent = tripCode;
 
   const tripRef = doc(db, "trips", tripCode);
   const snap = await getDoc(tripRef);
@@ -132,14 +128,10 @@ function renderAll() {
   if (!tripData) return;
   renderMembers();
   renderStops();
-  renderStays();
   renderPolls();
-  renderActivities();
   renderPacking();
   renderPersonalPacking();
   renderExpenses();
-  renderDriving();
-  renderPhotos();
 }
 
 function renderMembers() {
@@ -172,7 +164,7 @@ function escapeHtml(str) {
 // ---------- STOPS / MAP ----------
 function initMap() {
   if (map) return;
-  map = L.map("map").setView([68.2, 14.5], 6); // default center: Lofoten-ish
+  map = L.map("map").setView([62, 15], 4); // default view: the Nordics, until the trip has stops
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: "&copy; OpenStreetMap-bidragsgivare"
   }).addTo(map);
@@ -190,12 +182,23 @@ function initMap() {
 function renderStops() {
   if (!map) return;
   mapMarkersLayer.clearLayers();
-  (tripData.stops || []).forEach((s) => {
-    const marker = L.marker([s.lat, s.lng]).addTo(mapMarkersLayer);
+  (tripData.stops || []).forEach((s, idx) => {
+    const icon = L.divIcon({ className: "stop-pin", html: String(idx + 1), iconSize: [26, 26] });
+    const marker = L.marker([s.lat, s.lng], { icon }).addTo(mapMarkersLayer);
     marker.bindPopup(`<b>${escapeHtml(s.name)}</b>${s.note ? "<br>" + escapeHtml(s.note) : ""}`);
   });
 
   const stopsArr = tripData.stops || [];
+  const path = stopsArr.map((s) => [s.lat, s.lng]);
+  // dotted red line between the stops, in list order (straight lines, not the driven road)
+  if (path.length > 1) {
+    L.polyline(path, { color: "#b3261e", weight: 3, dashArray: "1 9", lineCap: "round", interactive: false }).addTo(mapMarkersLayer);
+  }
+  // first time we get stops: frame the map around them instead of the default view
+  if (!mapFittedToStops && path.length) {
+    map.fitBounds(path, { padding: [30, 30], maxZoom: 10 });
+    mapFittedToStops = true;
+  }
   const list = document.getElementById("stop-list");
   list.innerHTML = stopsArr.map((s, idx) => `
     <li class="list-row">
@@ -315,165 +318,6 @@ document.getElementById("stop-list").addEventListener("click", async (e) => {
   await saveField("stops", updated);
 });
 
-// ---------- STAYS ----------
-function renderStays() {
-  const list = document.getElementById("stay-list");
-  const sorted = [...(tripData.stays || [])].sort((a, b) => a.date.localeCompare(b.date));
-  list.innerHTML = sorted.map((s) => `
-    <li class="list-row">
-      <div class="item-row">
-        <div>
-          <div class="item-card-meta">${formatDate(s.date)}</div>
-          <div class="item-card-title">${escapeHtml(s.place)}</div>
-          ${s.note ? `<div class="item-card-note">${escapeHtml(s.note)}</div>` : ""}
-        </div>
-        <button class="delete-btn" data-id="${s.id}" data-action="del-stay">✕</button>
-      </div>
-    </li>
-  `).join("") || `<p class="hint">Inga nätter inlagda än.</p>`;
-}
-
-function formatDate(dstr) {
-  if (!dstr) return "";
-  const d = new Date(dstr + "T00:00:00");
-  return d.toLocaleDateString("sv-SE", { weekday: "short", day: "numeric", month: "short" });
-}
-
-document.getElementById("stay-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const date = document.getElementById("stay-date").value;
-  const place = document.getElementById("stay-place").value.trim();
-  const note = document.getElementById("stay-note").value.trim();
-  if (!date || !place) return;
-  const updated = [...(tripData.stays || []), { id: uid(), date, place, note }];
-  await saveField("stays", updated);
-  e.target.reset();
-});
-
-document.getElementById("stay-list").addEventListener("click", async (e) => {
-  const btn = e.target.closest("[data-action='del-stay']");
-  if (!btn) return;
-  const updated = (tripData.stays || []).filter((s) => s.id !== btn.dataset.id);
-  await saveField("stays", updated);
-});
-
-// ---------- DRIVING SCHEDULE (who drives which day/leg) ----------
-function renderDrivingDriverOptions() {
-  const select = document.getElementById("driving-driver");
-  const members = tripData.members || [];
-  const prevValue = select.value;
-  select.innerHTML = `<option value="">Vem kör?</option>` +
-    members.map((m) => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join("");
-  if (members.includes(prevValue)) select.value = prevValue;
-}
-
-function renderDriving() {
-  renderDrivingDriverOptions();
-  const list = document.getElementById("driving-list");
-  const sorted = [...(tripData.driving || [])].sort((a, b) => a.date.localeCompare(b.date));
-  list.innerHTML = sorted.map((d) => `
-    <li class="list-row">
-      <div class="item-row">
-        <div>
-          <div class="item-card-meta">${formatDate(d.date)}</div>
-          <div class="item-card-title">${escapeHtml(d.driver)}</div>
-          ${d.note ? `<div class="item-card-note">${escapeHtml(d.note)}</div>` : ""}
-        </div>
-        <button class="delete-btn" data-id="${d.id}" data-action="del-driving">✕</button>
-      </div>
-    </li>
-  `).join("") || `<p class="hint">Inget körschema inlagt än.</p>`;
-}
-
-document.getElementById("driving-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const date = document.getElementById("driving-date").value;
-  const driver = document.getElementById("driving-driver").value;
-  const note = document.getElementById("driving-note").value.trim();
-  if (!date || !driver) return;
-  if (!(tripData.members || []).includes(driver)) {
-    alert("Den valda personen är inte längre med i resan. Välj en av deltagarna i listan.");
-    return;
-  }
-  const updated = [...(tripData.driving || []), { id: uid(), date, driver, note }];
-  await saveField("driving", updated);
-  e.target.reset();
-});
-
-document.getElementById("driving-list").addEventListener("click", async (e) => {
-  const btn = e.target.closest("[data-action='del-driving']");
-  if (!btn) return;
-  const updated = (tripData.driving || []).filter((d) => d.id !== btn.dataset.id);
-  await saveField("driving", updated);
-});
-
-// ---------- PHOTO GALLERY (Cloudinary, free tier, unsigned client-side upload - no OAuth/login needed) ----------
-function cloudinaryThumb(url) {
-  return url.replace("/upload/", "/upload/c_fill,w_400,h_400,q_auto,f_auto/");
-}
-
-function renderPhotos() {
-  const grid = document.getElementById("photo-grid");
-  const photos = tripData.photos || [];
-  grid.innerHTML = photos.map((p) => `
-    <div class="photo-item">
-      <a href="${p.url}" target="_blank" rel="noopener">
-        <img src="${cloudinaryThumb(p.url)}" alt="" loading="lazy">
-      </a>
-      ${p.uploadedBy ? `<span class="photo-uploader-tag">${escapeHtml(p.uploadedBy)}</span>` : ""}
-      <button class="delete-btn" data-id="${p.id}" data-action="del-photo" title="Ta bort ur galleriet">✕</button>
-    </div>
-  `).join("");
-}
-
-document.getElementById("photo-grid").addEventListener("click", async (e) => {
-  const btn = e.target.closest("[data-action='del-photo']");
-  if (!btn) return;
-  const updated = (tripData.photos || []).filter((p) => p.id !== btn.dataset.id);
-  await saveField("photos", updated);
-});
-
-document.getElementById("photo-upload-btn").addEventListener("click", async () => {
-  const input = document.getElementById("photo-upload-input");
-  const status = document.getElementById("photo-upload-status");
-  const file = input.files[0];
-  if (!file) {
-    alert("Välj en bild först.");
-    return;
-  }
-  if (cloudinaryConfig.cloudName.startsWith("FYLL_I_") || cloudinaryConfig.uploadPreset.startsWith("FYLL_I_")) {
-    alert("Bilduppladdning är inte konfigurerad än - se README.md för hur du kopplar in ett gratis Cloudinary-konto.");
-    return;
-  }
-  if (file.size > 15 * 1024 * 1024) {
-    alert("Bilden är större än 15 MB - välj en mindre bild (t.ex. skärmdump av originalet) så räcker gratiskvoten längre.");
-    return;
-  }
-
-  status.textContent = "Laddar upp…";
-  status.classList.remove("hidden");
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("upload_preset", cloudinaryConfig.uploadPreset);
-
-  try {
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudinaryConfig.cloudName}/image/upload`, {
-      method: "POST",
-      body: formData
-    });
-    const data = await res.json();
-    if (!res.ok || !data.secure_url) {
-      throw new Error(data.error?.message || "Okänt fel");
-    }
-    const updated = [...(tripData.photos || []), { id: uid(), url: data.secure_url, publicId: data.public_id, uploadedBy: myName }];
-    await saveField("photos", updated);
-    input.value = "";
-    status.classList.add("hidden");
-  } catch (err) {
-    status.textContent = "Uppladdningen misslyckades: " + err.message;
-  }
-});
-
 // ---------- POLLS ----------
 function renderPolls() {
   const list = document.getElementById("poll-list");
@@ -538,60 +382,6 @@ document.getElementById("poll-list").addEventListener("click", async (e) => {
       return { ...p, options: newOptions };
     });
     await saveField("polls", updated);
-  }
-});
-
-// ---------- ACTIVITIES ----------
-function renderActivities() {
-  const list = document.getElementById("activity-list");
-  list.innerHTML = (tripData.activities || []).map((a) => {
-    const liked = (a.likes || []).includes(myName);
-    return `
-      <li class="list-row">
-        <div class="item-row">
-          <div>
-            <div class="item-card-title">${escapeHtml(a.name)}</div>
-            <div class="item-card-meta">${escapeHtml(a.difficulty || "")} ${a.duration ? "· " + escapeHtml(a.duration) : ""}</div>
-            ${a.note ? `<div class="item-card-note">${escapeHtml(a.note)}</div>` : ""}
-          </div>
-          <button class="delete-btn" data-id="${a.id}" data-action="del-activity">✕</button>
-        </div>
-        <button class="like-btn ${liked ? "liked" : ""}" data-id="${a.id}" data-action="like-activity">
-          <svg class="like-icon" viewBox="0 0 24 24" fill="${liked ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7.5-4.6-9.6-9.4C1.2 7.7 3 4.8 6.1 4.5c1.9-.2 3.6.8 5.9 3 2.3-2.2 4-3.2 5.9-3 3.1.3 4.9 3.2 3.7 6.1C19.5 15.4 12 20 12 20z"/></svg>
-          ${(a.likes || []).length}
-        </button>
-      </li>`;
-  }).join("") || `<p class="hint">Inga förslag än.</p>`;
-}
-
-document.getElementById("activity-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const name = document.getElementById("activity-name").value.trim();
-  const difficulty = document.getElementById("activity-difficulty").value.trim();
-  const duration = document.getElementById("activity-duration").value.trim();
-  const note = document.getElementById("activity-note").value.trim();
-  if (!name) return;
-  const updated = [...(tripData.activities || []), { id: uid(), name, difficulty, duration, note, likes: [] }];
-  await saveField("activities", updated);
-  e.target.reset();
-});
-
-document.getElementById("activity-list").addEventListener("click", async (e) => {
-  const delBtn = e.target.closest("[data-action='del-activity']");
-  if (delBtn) {
-    const updated = (tripData.activities || []).filter((a) => a.id !== delBtn.dataset.id);
-    await saveField("activities", updated);
-    return;
-  }
-  const likeBtn = e.target.closest("[data-action='like-activity']");
-  if (likeBtn) {
-    const updated = (tripData.activities || []).map((a) => {
-      if (a.id !== likeBtn.dataset.id) return a;
-      const likes = a.likes || [];
-      const newLikes = likes.includes(myName) ? likes.filter((n) => n !== myName) : [...likes, myName];
-      return { ...a, likes: newLikes };
-    });
-    await saveField("activities", updated);
   }
 });
 
